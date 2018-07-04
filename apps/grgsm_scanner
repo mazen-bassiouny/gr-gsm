@@ -41,7 +41,7 @@ import time
 # from wideband_receiver import *
 
 class receiver_with_decoder(grgsm.hier_block):
-    def __init__(self, OSR=4, chan_num=0, fc=939.4e6, ppm=0, samp_rate=0.2e6):
+    def __init__(self, OSR=4, chan_num=0, fc=947.6e6, ppm=0, samp_rate=0.2e6):
         grgsm.hier_block.__init__(
             self, "Receiver With Decoder",
             gr.io_signature(1, 1, gr.sizeof_gr_complex * 1),
@@ -198,53 +198,54 @@ class wideband_receiver(grgsm.hier_block):
 
 
 class wideband_scanner(gr.top_block):
-    def __init__(self, rec_len=3, sample_rate=2e6, carrier_frequency=939e6, gain=24, ppm=0, args=""):
+    def __init__(self, rec_len=4, sample_rate=2e6, carrier_frequency=939e6, gain=24, cfile=None,ppm=0, args=""):
         gr.top_block.__init__(self, "Wideband Scanner")
 
         self.rec_len = rec_len
         self.sample_rate = sample_rate
         self.carrier_frequency = carrier_frequency
         self.ppm = ppm
+	self.cfile=cfile
 
         # if no file name is given process data from rtl_sdr source
         print "Args=", args
-        self.rtlsdr_source = osmosdr.source(args="numchan=" + str(1) + " " + args)
+        #self.rtlsdr_source = osmosdr.source(args="numchan=" + str(1) + " " + args)
         #self.rtlsdr_source.set_min_output_buffer(int(sample_rate*rec_len)) #this line causes segfaults on HackRF
-        self.rtlsdr_source.set_sample_rate(sample_rate)
+        #self.rtlsdr_source.set_sample_rate(sample_rate)
 
         # capture half of GSM channel lower than channel center (-0.1MHz)
         # this is needed when even number of channels is captured in order to process full captured bandwidth
 
-        self.rtlsdr_source.set_center_freq(carrier_frequency - 0.1e6, 0)
+        #self.rtlsdr_source.set_center_freq(carrier_frequency - 0.1e6, 0)
 
         # correction of central frequency
         # if the receiver has large frequency offset
         # the value of this variable should be set close to that offset in ppm
-        self.rtlsdr_source.set_freq_corr(ppm, 0)
+        #self.rtlsdr_source.set_freq_corr(ppm, 0)
 
-        self.rtlsdr_source.set_dc_offset_mode(2, 0)
-        self.rtlsdr_source.set_iq_balance_mode(0, 0)
-        self.rtlsdr_source.set_gain_mode(True, 0)
-        self.rtlsdr_source.set_bandwidth(sample_rate, 0)
-        self.rtlsdr_source.set_gain(gain, 0)
-        self.rtlsdr_source.set_if_gain(32, 0)
-        self.rtlsdr_source.set_bb_gain(30, 0)
-        self.head = blocks.head(gr.sizeof_gr_complex * 1, int(rec_len * sample_rate))
+        #self.rtlsdr_source.set_dc_offset_mode(2, 0)
+        #self.rtlsdr_source.set_iq_balance_mode(0, 0)
+        #self.rtlsdr_source.set_gain_mode(True, 0)
+        #self.rtlsdr_source.set_bandwidth(sample_rate, 0)
+        #self.rtlsdr_source.set_gain(gain, 0)
+        #self.rtlsdr_source.set_if_gain(32, 0)
+        #self.rtlsdr_source.set_bb_gain(30, 0)
+        #self.head = blocks.head(gr.sizeof_gr_complex * 1, int(rec_len * sample_rate))
 
         # shift again by -0.1MHz in order to align channel center in 0Hz
-        self.blocks_rotator_cc = blocks.rotator_cc(-2 * pi * 0.1e6 / sample_rate)
-
+        #self.blocks_rotator_cc = blocks.rotator_cc(-2 * pi * 0.1e6 / sample_rate)
+        self.source = blocks.file_source(gr.sizeof_gr_complex, cfile, False)
         self.wideband_receiver = wideband_receiver(OSR=4, fc=carrier_frequency, samp_rate=sample_rate)
         self.gsm_extract_system_info = grgsm.extract_system_info()
 
-        self.connect((self.rtlsdr_source, 0), (self.head, 0))
-        self.connect((self.head, 0), (self.blocks_rotator_cc, 0))
-        self.connect((self.blocks_rotator_cc, 0), (self.wideband_receiver, 0))
+        #self.connect((self.rtlsdr_source, 0), (self.head, 0))
+        #self.connect((self.head, 0), (self.blocks_rotator_cc, 0))
+        self.connect((self.source, 0), (self.wideband_receiver, 0))
         self.msg_connect(self.wideband_receiver, 'msgs', self.gsm_extract_system_info, 'msgs')
 
     def set_carrier_frequency(self, carrier_frequency):
         self.carrier_frequency = carrier_frequency
-        self.rtlsdr_source.set_center_freq(carrier_frequency - 0.1e6, 0)
+        #self.rtlsdr_source.set_center_freq(carrier_frequency - 0.1e6, 0)
 
 
 class channel_info(object):
@@ -297,7 +298,7 @@ class channel_info(object):
         return "ARFCN: %4u, Freq: %6.1fM, CID: %5u, LAC: %5u, MCC: %3u, MNC: %3u, Pwr: %3i" % (
             self.arfcn, self.freq / 1e6, self.cid, self.lac, self.mcc, self.mnc, self.power)
 
-def do_scan(samp_rate, band, speed, ppm, gain, args, prn = None):
+def do_scan(samp_rate, band, speed, ppm, gain,cfile, args, prn = None):
     signallist = []
     channels_num = int(samp_rate / 0.2e6)
     for arfcn_range in grgsm.arfcn.get_arfcn_ranges(band):
@@ -317,14 +318,14 @@ def do_scan(samp_rate, band, speed, ppm, gain, args, prn = None):
             # save the current file descriptors to a tuple
             save = os.dup(1), os.dup(2)
             # put /dev/null fds on 1 and 2
-            os.dup2(null_fds[0], 1)
-            os.dup2(null_fds[1], 2)
+            #os.dup2(null_fds[0], 1)
+            #os.dup2(null_fds[1], 2)
 
             # instantiate scanner and processor
             scanner = wideband_scanner(rec_len=6 - speed,
                                        sample_rate=samp_rate,
                                        carrier_frequency=current_freq,
-                                       ppm=ppm, gain=gain, args=args)
+                                       ppm=ppm, gain=gain,cfile=cfile, args=args)
 
             # start recording
             scanner.start()
@@ -390,6 +391,10 @@ def argument_parser():
     parser.add_option("-v", "--verbose", action="store_true",
                       help="If set, verbose information output is printed: ccch configuration, cell ARFCN's, neighbour ARFCN's")
 
+
+    parser.add_option("-c", "--cfile", dest="cfile", type=str, default="",help="Path to wideband GSM capture file")
+
+
     """
         Dont forget: sudo sysctl kernel.shmmni=32000
     """
@@ -415,7 +420,7 @@ def main(options = None):
                 print info.get_verbose_info()
     print ""
     do_scan(options.samp_rate, options.band, options.speed,
-            options.ppm, options.gain, options.args, prn = printfunc)
+            options.ppm, options.gain,options.cfile, options.args, prn = printfunc)
 
 if __name__ == '__main__':
     main()
