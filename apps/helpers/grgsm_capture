@@ -53,8 +53,9 @@ class grgsm_capture(gr.top_block):
         self.cfile = cfile
         self.burst_file = burst_file
         self.verbose = verbose
-        self.shiftoff = shiftoff = 400e3
+        self.shiftoff = shiftoff = 0
         self.rec_length = rec_length
+        self.custom_bandwidth=custom_bandwidth=250e3
         
         ##################################################
         # Processing Blocks
@@ -71,7 +72,7 @@ class grgsm_capture(gr.top_block):
         self.rtlsdr_source.set_if_gain(20, 0)
         self.rtlsdr_source.set_bb_gain(20, 0)
         self.rtlsdr_source.set_antenna("", 0)
-        self.rtlsdr_source.set_bandwidth(250e3+abs(shiftoff), 0)
+        self.rtlsdr_source.set_bandwidth(custom_bandwidth+abs(shiftoff), 0)
         self.blocks_rotator = blocks.rotator_cc(-2*pi*shiftoff/samp_rate)
         
         if self.rec_length is not None:
@@ -173,7 +174,7 @@ class grgsm_capture(gr.top_block):
 if __name__ == '__main__':
 
     parser = OptionParser(option_class=eng_option, usage="%prog [options]",
-                          description="RTL-SDR capturing app of gr-gsm.")
+                          description=" Try to capture only and use later of gr-gsm.")
 
     parser.add_option("-f", "--fc", dest="fc", type="eng_float", 
                       help="Set frequency [default=%default]")
@@ -206,6 +207,9 @@ if __name__ == '__main__':
 
     parser.add_option("-T", "--rec-length", dest="rec_length", type="eng_float",
         help="Set length of recording in seconds [default=%default]")
+    parser.add_option("-w", "--band", dest="custom_bandwidth", type="eng_float",
+        help="Set band [default=%default] ")
+
 
     (options, args) = parser.parse_args()
     
