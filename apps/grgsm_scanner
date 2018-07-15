@@ -310,36 +310,36 @@ def do_scan(samp_rate, band, speed, ppm, gain,cfile, args, prn = None):
         last_freq = grgsm.arfcn.arfcn2downlink(last_center_arfcn)
         stop_freq = last_freq + 0.2e6 * channels_num
 
-        while current_freq < stop_freq:
+        #while current_freq < stop_freq:
 
             # silence rtl_sdr output:
             # open 2 fds
-            null_fds = [os.open(os.devnull, os.O_RDWR) for x in xrange(2)]
+	null_fds = [os.open(os.devnull, os.O_RDWR) for x in xrange(2)]
             # save the current file descriptors to a tuple
-            save = os.dup(1), os.dup(2)
+        save = os.dup(1), os.dup(2)
             # put /dev/null fds on 1 and 2
-            #os.dup2(null_fds[0], 1)
-            #os.dup2(null_fds[1], 2)
+	os.dup2(null_fds[0], 1)
+        os.dup2(null_fds[1], 2)
 
             # instantiate scanner and processor
-            scanner = wideband_scanner(rec_len=6 - speed,
+	scanner = wideband_scanner(rec_len=6 - speed,
                                        sample_rate=samp_rate,
-                                       carrier_frequency=current_freq,
+                                       carrier_frequency=fc,
                                        ppm=ppm, gain=gain,cfile=cfile, args=args)
 
             # start recording
-            scanner.start()
-            scanner.wait()
-            scanner.stop()
+	scanner.start()
+	scanner.wait()
+    	scanner.stop()
 
-            freq_offsets = numpy.fft.ifftshift(
+   	freq_offsets = numpy.fft.ifftshift(
                 numpy.array(range(int(-numpy.floor(channels_num / 2)), int(numpy.floor((channels_num + 1) / 2)))) * 2e5)
-            detected_c0_channels = scanner.gsm_extract_system_info.get_chans()
+   	detected_c0_channels = scanner.gsm_extract_system_info.get_chans()
 
-            found_list = []
+     	found_list = []
 
-            if detected_c0_channels:
-                chans = numpy.array(scanner.gsm_extract_system_info.get_chans())
+      	if detected_c0_channels:
+      		chans = numpy.array(scanner.gsm_extract_system_info.get_chans())
                 found_freqs = current_freq + freq_offsets[(chans)]
 
                 cell_ids = numpy.array(scanner.gsm_extract_system_info.get_cell_id())
@@ -358,20 +358,20 @@ def do_scan(samp_rate, band, speed, ppm, gain,cfile, args, prn = None):
                                         neighbour_list, cell_arfcn_list)
                     found_list.append(info)
 
-            scanner = None
+ 	scanner = None
 
             # restore file descriptors so we can print the results
-            os.dup2(save[0], 1)
-            os.dup2(save[1], 2)
+    	os.dup2(save[0], 1)
+	os.dup2(save[1], 2)
             # close the temporary fds
-            os.close(null_fds[0])
-            os.close(null_fds[1])
-            if prn:
-                prn(found_list)
-            signallist.extend(found_list)
+   	os.close(null_fds[0])
+       	os.close(null_fds[1])
+   	if prn:
+		prn(found_list)
+    		signallist.extend(found_list)
 
-            current_freq += channels_num * 0.2e6
-    return signallist
+            	current_freq += channels_num * 0.2e6
+    	return signallist
 
 def argument_parser():
     parser = OptionParser(option_class=eng_option, usage="%prog: [options]")
@@ -380,6 +380,8 @@ def argument_parser():
                       help="Specify the GSM band for the frequency.\nAvailable bands are: " + bands_list)
     parser.add_option("-s", "--samp-rate", dest="samp_rate", type="float", default=2e6,
                       help="Set sample rate [default=%default] - allowed values even_number*0.2e6")
+    parser.add_option("-q", "--carrier-freq", dest="fc", type="float", default=939e6,
+                      help="Set carrier freq [default=%default] - allowed values even_number*0.2e6")
     parser.add_option("-p", "--ppm", dest="ppm", type="intx", default=0,
                       help="Set frequency correction in ppm [default=%default]")
     parser.add_option("-g", "--gain", dest="gain", type="eng_float", default=24.0,
