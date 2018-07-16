@@ -298,7 +298,7 @@ class channel_info(object):
         return "ARFCN: %4u, Freq: %6.1fM, CID: %5u, LAC: %5u, MCC: %3u, MNC: %3u, Pwr: %3i" % (
             self.arfcn, self.freq / 1e6, self.cid, self.lac, self.mcc, self.mnc, self.power)
 
-def do_scan(samp_rate, band, speed, ppm, gain,cfile, args, prn = None):
+def do_scan(samp_rate,fc, band, speed, ppm, gain,cfile, args, prn = None):
     signallist = []
     channels_num = int(samp_rate / 0.2e6)
     for arfcn_range in grgsm.arfcn.get_arfcn_ranges(band):
@@ -318,8 +318,8 @@ def do_scan(samp_rate, band, speed, ppm, gain,cfile, args, prn = None):
             # save the current file descriptors to a tuple
         save = os.dup(1), os.dup(2)
             # put /dev/null fds on 1 and 2
-	os.dup2(null_fds[0], 1)
-        os.dup2(null_fds[1], 2)
+	#os.dup2(null_fds[0], 1)
+        #os.dup2(null_fds[1], 2)
 
             # instantiate scanner and processor
 	scanner = wideband_scanner(rec_len=6 - speed,
@@ -421,7 +421,7 @@ def main(options = None):
             if options.verbose:
                 print info.get_verbose_info()
     print ""
-    do_scan(options.samp_rate, options.band, options.speed,
+    do_scan(options.samp_rate, options.fc,options.band, options.speed,
             options.ppm, options.gain,options.cfile, options.args, prn = printfunc)
 
 if __name__ == '__main__':
